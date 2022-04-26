@@ -1,3 +1,4 @@
+from csv import reader
 import os
 import glob
 import cv2
@@ -13,7 +14,10 @@ from pathlib import Path
 import time
 from tqdm import tqdm
 import pandas as pd
+import matplotlib as plt
 
+font = cv2.FONT_HERSHEY_SIMPLEX
+color = (255,0,0)
 # user filepaths settings. 
 # current users, nijhum and lameya. 
 user = "nijhum"
@@ -52,26 +56,33 @@ def Tess(file):
 def EasyOCR(file):
     
     start = time.time()
-    im = PIL.Image.open(file)
+
+    img = cv2.imread(file)
     reader = easyocr.Reader(['en'], gpu=False)
     bound = reader.readtext(file)
+    for detection in bound:
+        #print(detection)
+        top_left = (detection[0][0])
+        top_left = tuple([int(x) for x in top_left])
+        bottom_right = detection[0][2]
+        bottom_right = tuple([int(x) for x in bottom_right])
+        text = detection[1]
+        #print(text)
+        img = cv2.rectangle(img,top_left,bottom_right,(0,255,0),3)
+        img = cv2.putText(img,text, bottom_right, font, 2, color, 2 ,cv2.LINE_AA)
+    
 
-    def draw_box(Image, bound, color = 'red', width = 2):
-        draw = ImageDraw.Draw(Image)
-        for bound in bound:
-            p0, p1, p2, p3 = bound[0]
-            draw.line([*p0, *p1, *p2, *p3, *p0], fill = color, width= width)
-        return Image
-        
-    draw_box(im, bound)
-    image = numpy.array(im)
+    print(bound[1])
+
+    # image = numpy.array(im)
     image_name = Path(file).name
     f = os.path.join(easyocr_files_path, image_name)
-    cv2.imwrite(f, image)
+    cv2.imwrite(f, img)
 
+    print("")
     end = time.time()
     duration = end - start
-    return duration
+    return duration,reader
 
 # main function
 def main():
@@ -83,9 +94,12 @@ def main():
     # append the time duration to respective list
     for file in tqdm(glob.glob(path), desc="Processing"):
         tess_duration = Tess(file)
-        easyocr_duration = EasyOCR(file)
+        easyocr_duration, reader = EasyOCR(file)
+        print(easy_durations)
+        print(reader)
         tess_durations.append(tess_duration)
         easy_durations.append(easyocr_duration)
+        break
 
     # save results to dataframe
     results = [["Total Duration: ", sum(tess_durations), sum(easy_durations)],
